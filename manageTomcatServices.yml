@@ -1,0 +1,27 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    service_state: started
+    # Spliting tomcats(_ports) by (,)
+    tomcats: "{{ lookup('ini', 'TOMCATS section={{ section }} file={{ configFile }}').split(',') }}"
+    tomcat_service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}"
+  tasks:
+    - name: Manage tomcat service state to stopped
+      win_shell: taskkill /F /fi "Services eq {{ tomcat_service_name }}-{{ item }}"
+      with_items:
+        - "{{ tomcats }}"
+      when: service_state|lower == 'stopped'
+
+    - name: Manage tomcat service state to started/restarted
+      win_service:
+        name: "{{ tomcat_service_name }}-{{ item }}"
+        state: "{{ service_state }}"
+      with_items:
+        - "{{ tomcats }}"
+      when: service_state|lower != 'stopped'

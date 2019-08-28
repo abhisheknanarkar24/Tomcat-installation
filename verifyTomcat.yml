@@ -1,0 +1,23 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars: 
+    port: "{{ port }}" 
+# "{{ lookup('ini', 'PORT section=Common_Settings file={{ configFile }}') }}"
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_install_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ tomcat_version }}-{{ port }}"
+  tasks:
+    - name: Verify if tomcat is already installed
+      win_stat:
+        path: "{{ tomcat_install_dir }}"
+      register: output
+
+    - set_fact:
+        is_tomcat_exists: "{{ output.stat.exists }}"
+    - debug: 
+        msg: "Tomcat is already installed : {{ is_tomcat_exists }}"

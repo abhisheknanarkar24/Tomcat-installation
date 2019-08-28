@@ -1,0 +1,14 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    tomcat_service_prefix: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}"
+  tasks:
+    - name: Start all tomcat services
+      win_shell: Get-Service | Where-Object {$_.displayName.StartsWith("{{ tomcat_service_prefix }}-")} | Start-Service
+

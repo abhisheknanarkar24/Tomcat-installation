@@ -1,0 +1,21 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    tomcat_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}"
+  tasks:
+    - name: Check tomcat installed version
+      win_shell: .\version.bat | find "Server version"  | %{ [regex]::matches($_, "\d{1,2}(\.\d{1,3})+") } | %{ $_.Value }
+      args:
+        chdir: "{{ tomcat_dir }}\\bin"
+      register: tomcat_version_output
+      failed_when: "'FAILED' in curr_tomcat_version.stderr"
+
+    - set_fact:
+        tomcat_version: "{{ tomcat_version_output.stdout | regex_replace('\\r\\n', '') }}"
+

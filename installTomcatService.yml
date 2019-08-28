@@ -1,0 +1,25 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    port: "{{ port }}" #"{{ lookup('ini', 'PORT section=Common_Settings file={{ configFile }}') }}"
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_install_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ tomcat_version }}-{{ port }}"
+    service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+#    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') | regex_search('\\d')}}"
+  tasks:
+    - name: Install tomcat as a service
+      win_shell: "set CATALINA_BASE={{ tomcat_install_dir }};set CATALINA_HOME={{ tomcat_install_dir }}; ./service.bat install {{ service_name }} chdir=\"{{ tomcat_install_dir }}/bin\""
+#      win_shell: "./tomcat{{ tomcat_version }}.exe //IS//{{ service_name }} chdir=\"{{ tomcat_install_dir }}/bin\""
+
+# Remove this start task once seperate task is written
+    - name: Start service
+      win_service:
+        name: "{{ service_name }}"
+        state: started
+

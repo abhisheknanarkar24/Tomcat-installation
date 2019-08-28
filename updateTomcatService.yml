@@ -1,0 +1,33 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    port: "{{ port }}" 
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_install_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ tomcat_version }}-{{ port }}"
+
+    display_name: "{{ lookup('ini', 'SERVICE_DISPLAY_NAME section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+    service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+    description: "{{ lookup('ini', 'SERVICE_DESCRIPTION section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+    tomcat_zip: "{{ lookup('ini', 'TOMCAT_ZIP section=Common_Settings file={{ configFile }}') }}"
+    jvm_initial_memory: "{{ lookup('ini', 'JVM_INITIAL_MEMORY section=Common_Settings file={{ configFile }}') }}"
+    jvm_maximum_memory: "{{ lookup('ini', 'JVM_MAXIMUM_MEMORY section=Common_Settings file={{ configFile }}') }}"
+    section: "{{ section }}"
+  tasks:
+
+    - name: Update tomcat service
+      win_shell: "./tomcat{{ tomcat_version | regex_search('\\d') }}.exe //US//{{ service_name }} --DisplayName=\"{{ display_name }}\" --Startup=auto --Description=\"{{ description }}\" --JvmMs={{ jvm_initial_memory }} --JvmMx={{ jvm_maximum_memory }} --StartPath=\"{{ tomcat_install_dir }}\\bin\" ++JvmOptions=\"-Duser.timezone=GMT -Duser.displayTimezone=Europe/London -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port={{ lookup('ini', 'JMX_{{ port }} section={{ section }}  file={{ configFile }}') }} -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate -XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC\""
+      args:
+        chdir: "{{ tomcat_install_dir }}\\bin"
+# --JvmMs={{ jvm_initial_memory }} --JvmMx={{ jvm_maximum_memory }}
+# --JvmOptions='{{ java_options }}
+
+    - name: Start the service
+      win_service:
+        name: "{{ service_name }}"
+        state: restarted

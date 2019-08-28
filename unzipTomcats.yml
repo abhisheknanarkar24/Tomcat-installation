@@ -1,0 +1,22 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- hosts: "{{ hosts }}"
+  vars:
+    section: "{{ hostvars[inventory_hostname]['label'] }}"
+    tomcats: "{{ lookup('ini', 'TOMCATS section={{ section }} file={{ configFile }}').split(',') }}"
+    tomcat_zip: "{{ lookup('ini', 'TOMCAT_ZIP section=Common_Settings file={{ configFile }}') }}"
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}"
+    software_dir: "{{ lookup('ini', 'CONNECT_SOFTWARE section=Common_Settings file={{ configFile}}') }}"
+    service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}"
+
+  tasks:
+    - name: Unzip each tomcat based on ini entry
+      include_tasks: unzipTomcat.yml tomcat_port={{ item }}
+      with_items:
+        - "{{ tomcats }}"

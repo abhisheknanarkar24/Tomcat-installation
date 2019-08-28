@@ -1,0 +1,37 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- import_playbook: verifyTomcat.yml
+
+- hosts: "{{ hosts }}"
+  vars:
+    port:  #"{{ lookup('ini', 'PORT section=Common_Settings file={{ configFile }}') }}"
+#    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') | regex_search('\\d')}}"
+#    tomcat_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_install_dir: "{{ lookup('ini', 'CONNECT_APPS section=Common_Settings file={{ configFile }}') }}/{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ tomcat_version }}-{{ port }}"
+    service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}-{{ port }}"
+  tasks:
+#    - fail:
+#        msg: "There is no tomcat installed : [{{ tomcat_dir }} !! does not exist.]"
+#      when: not is_tomcat_exists
+
+    - name: Stop tomcat service before uninstalling
+      win_shell: taskkill /F /fi "Services eq {{ service_name }}"
+#      win_service: 
+#        name: "{{ service_name }}"
+#        state: stopped
+
+    - name: Uninstall Tomcat 8.0.39
+      win_command: "{{ tomcat_install_dir }}/bin/tomcat{{ tomcat_version | regex_search('\\d') }}.exe //DS//{{ service_name }}"
+      when: is_tomcat_exists
+
+    - name: Remove directory structure
+      win_file:
+        path: "{{ tomcat_install_dir }}"
+        state: absent
+      when: is_tomcat_exists

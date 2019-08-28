@@ -1,0 +1,20 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- set_fact:
+    port: "{{ tomcat_port }}"
+
+- name: Verify if service exists
+  win_command: C:/Windows/System32/sc query "{{ service_name}}-{{ port }}"
+  register: result
+  ignore_errors: true
+
+- name: "Copy conf file(s) to tomcat {{ port }}"
+  win_shell: "./tomcat8.exe //US//{{ service_name }}-{{ port }} --DisplayName=\"{{ service_name }}-{{ port }}\" --Startup=auto --Description=\"{{ service_name }}-{{ port }}\" --JvmMs=512 --JvmMx=1024 --StartPath=\"{{ tomcat_dir }}-{{ port }}/bin\""
+  args:
+    chdir: "{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/bin"
+  when: "'FAILED' not in result.stdout"

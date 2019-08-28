@@ -1,0 +1,93 @@
+#####################################################################################
+# Date            Version            Change
+# 11/04/2019      2.0                backlog fixes and new features
+# 24/05/2019      2.0.1              Change for access for configured account (current)
+#####################################################################################
+---
+
+- set_fact:
+    port: "{{ tomcat_port }}"
+  tags:
+   - updateTomcat
+
+- name: Verify if Tomcat exists on port "{{ item }}"
+  win_command: C:/Windows/System32/sc query "{{ service_name }}-{{ item }}"
+  register: result
+  ignore_errors: true
+  tags:
+   - verifyTomcat
+   - updateTomcat
+
+- debug:
+    msg: "{{ result }}"
+
+- name: Unzip Tomcat
+  win_unzip:
+    src: "{{ software_dir }}\\{{ tomcat_zip }}"
+    dest: "{{ tomcat_dir }}-{{ tomcat_version }}-{{ item }}"
+    delete_unarchive: no
+  when: result.rc == 1060
+  tags:
+   - unzipTomcat
+  
+- name: Apply regex to server.xml
+  win_shell: "(Get-Content '{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/conf/server.xml') | foreach {$_ -replace '{{ item.port }}', '{{ item.replace }}'} | Set-Content {{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/conf/server.xml"
+#  loop: "{{ query('nested',  regexps ) }}"
+  with_items:
+    - "{{  regexps }}"
+  when: result.rc == 1060
+  tags:
+    - "regex"
+  tags:
+   - configureTomcat
+
+- name: Add manager-gui user for application manager
+  win_lineinfile:
+    path: "{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/conf/tomcat-users.xml"
+    line: |
+      <role rolename="tomcat"/>
+      <role rolename="manager-gui"/>
+      <user username="{{ tomcat.username }}" password="{{ tomcat.password }}" roles="tomcat,manager-gui"/>
+    insertbefore: '</tomcat-users>'
+  when: "'FAILED' in result.stdout"
+  tags:
+   - configureTomcat
+
+- name: Install tomcat running on "{{ port }}"
+  win_shell: "set CATALINA_BASE={{ tomcat_dir }}-{{ tomcat_version }}-{{ port }};set CATALINA_HOME={{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}; ./service.bat install {{ service_name }}-{{ port }} chdir=\"{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/bin\""
+  when: result.rc == 1060
+  tags:
+   - installTomcat
+
+- name: Update the tomcat service on port "{{ port }}"
+  win_shell: "./tomcat{{ tomcat_version | regex_search('\\d') }}.exe //US//{{ service_name }}-{{ port }} --DisplayName=\"{{ service_name }}-{{ port }}\" --Startup=auto --Description=\"{{ service_name }}-{{ port }}\" --JvmMs={{ lookup('ini', 'INITIAL_HEAP_SIZE_{{ port }} section={{ section }} file={{ configFile }}') }} --JvmMx={{ lookup('ini', 'MAX_HEAP_SIZE_{{ port }} section={{ section }} file={{ configFile }}') }} --StartPath=\"{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/bin\" ++JvmOptions=-Duser.timezone=GMT  ++JvmOptions=-Duser.displayTimezone=Europe/London ++JvmOptions=-Dcom.sun.management.jmxremote=true ++JvmOptions=-Dcom.sun.management.jmxremote.port={{ lookup('ini', 'JMX_{{ port }} section={{ section }} file={{ configFile }}') }}  ++JvmOptions=-Dcom.sun.management.jmxremote.ssl=false ++JvmOptions=-Dcom.sun.management.jmxremote.authenticate ++JvmOptions=-XX:+UnlockCommercialFeatures ++JvmOptions=-XX:+FlightRecorder ++JvmOptions=-XX:-OmitStackTraceInFastThrow ++JvmOptions=-XX:+UseG1GC"
+  args:
+    chdir: "{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}/bin"
+  tags:
+   - updateTomcat
+
+- name: Allow rights for Users
+  win_acl:
+    path: "{{ tomcat_dir }}-{{ tomcat_version }}-{{ port }}"
+    user: "Users"
+    rights: FullControl
+    type: allow
+    state: present
+  tags:
+   - updateTomcat
+
+- name: "Set service {{ service_name }}-{{ port }} to run as {{ ansible_app_account }}"
+  win_service:
+    name: "{{ service_name }}-{{ port }}"
+    state: stopped
+    username: "{{ ansible_app_account }}"
+    password: "{{ ansible_app_account_password }}"
+  tags:
+   - updateTomcat
+
+- name: Start service "{{ service_name }}-{{ port }}"
+  win_service:
+    name: "{{ service_name }}-{{ port }}"
+    state: started
+  tags:
+   - startTomcat
