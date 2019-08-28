@@ -1,0 +1,12 @@
+#####################################################################################
+# Date            Version            Change
+# 12/06/2019      2.0.2              created (current)
+#####################################################################################
+---
+
+# Copy tomcat to target machine(s)
+- import_playbook: "{{ lookup('ini', 'COMMON_SCRIPTS section=ANSIBLE file={{ configFile }}') }}/copyFiles_lin.yml"
+  vars:
+    hosts: "{{ hosts }}"
+    src_dir: "{{ lookup('ini', 'SOFTWARE_SOURCE section=Common_Settings file={{ configFile }}') }}/Tomcat/{{ lookup('ini', 'TOMCAT_TAR section=Common_Settings file={{ configFile }}') }}"
+    dest_dir: "{{ lookup('ini', 'CONNECT_SOFTWARE_LIN section=Common_Settings file={{ configFile}}') }}/"

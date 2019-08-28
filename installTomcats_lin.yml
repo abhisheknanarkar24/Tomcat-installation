@@ -1,0 +1,38 @@
+################################################################################################
+# Date            Version            Change
+# 12/06/2019      2.0.1              created (previous)
+# 20/06/2019      2.0.2              parametrized the connect software dir directory (current)
+################################################################################################
+---
+
+- hosts: "{{ hosts }}"
+
+  vars:
+    tomcats: "{{ lookup('ini', 'TOMCATS section={{ section }} file={{ configFile }}').split(',') }}"
+    assets_dir: "{{ lookup('ini', 'ASSETS_DIR section=Common_Settings file={{ configFile }}') }}"
+    tomcat_tar: "{{ lookup('ini', 'TOMCAT_TAR section=Common_Settings file={{ configFile }}') }}"
+    port: "{{ port }}"
+    tomcat_version: "{{ lookup('ini', 'TOMCAT_VERSION section=Common_Settings file={{ configFile }}') }}"
+    tomcat_dir: "{{ lookup('ini', 'TOMCAT_DIR section=Common_Settings file={{ configFile }}') }}-{{ tomcat_version }}-{{ port }}"
+    software_dir: "{{ lookup('ini', 'SOFTWARE_SOURCE section=Common_Settings file={{ configFile }}') }}/Tomcat"
+    server_xml: "{{ assets_dir }}/{{ tomcat_dir }}/conf/server.xml"
+    service_name: "{{ lookup('ini', 'SERVICE_NAME section=Common_Settings file={{ configFile }}') }}"
+    regexps:
+      - { port: "Server port=\"[\\d]*\" shutdown=\"SHUTDOWN\"", replace: "Server port=\"{{ port|int - 75 }}\" shutdown=\"SHUTDOWN\"" }
+      - { port: "Connector port=\"[\\d]*\" protocol=\"HTTP/1.1\"", replace: "Connector port=\"{{ port }}\" protocol=\"HTTP/1.1\"" }
+      - { port: "redirectPort=\"[\\d]*\"", replace: "redirectPort=\"{{ port|int + 363 }}\"" }
+      - { port: "Connector port=\"[\\d]*\" protocol=\"AJP/1.3\"", replace: "Connector port=\"{{ port|int - 71 }}\" protocol=\"AJP/1.3\"" }
+    jvm_min: "{{ lookup('ini', 'INITIAL_HEAP_SIZE_{{ port }} section={{ section }} file={{ configFile }}') }}"
+    jvm_max: "{{ lookup('ini', 'MAX_HEAP_SIZE_{{ port }} section={{ section }} file={{ configFile }}') }}" 
+    connect_software_dir: "{{ lookup('ini', 'CONNECT_SOFTWARE_LIN section=Common_Settings file={{ configFile }}') }}"
+
+  tasks:
+    - include_vars:
+        file: /etc/ansible/group_vars_{{ deployment_environment }}/tomcat.yml
+        name: tomcat
+
+    - name: Install Tomcats
+      include_tasks: installTomcat_lin.yml tomcat_port={{ item }}
+      with_items:
+        - "{{ tomcats }}"
+

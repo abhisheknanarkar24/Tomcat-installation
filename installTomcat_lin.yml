@@ -1,0 +1,67 @@
+###################################################################################################
+# Date            Version            Change
+# 11/04/2019      2.0                backlog fixes and new features
+# 20/06/2019      2.0.2              parametrized the connect software dir directory (current)
+###################################################################################################
+---
+
+- set_fact:
+    port: "{{ tomcat_port }}"
+
+- name: Verify if Tomcat exists on port "{{ port }}"
+  command: service "{{ service_name }}-{{ port }}" status
+  register: result
+  ignore_errors: true
+
+- name: create "{{ assets_dir }}" directory
+  file:
+    path: "{{ assets_dir }}/{{ tomcat_dir }}"
+    state: directory
+
+# no need to copy tomcat over remote machine 
+# unarchive directly does the job
+- name: unzip "{{ tomcat_tar }}"
+  unarchive:
+    src: "{{ software_dir }}/{{ tomcat_tar }}"
+    dest: "{{ assets_dir }}/{{ tomcat_dir }}"
+  when: result.rc == 2
+
+- name: Replace Connector port of "{{ service_name }}-{{ port }}"
+  replace:
+    path: "{{ server_xml }}"
+    regexp: "{{ item.port }}"
+    replace: "{{ item.replace }}"
+  # with_items:
+    # - {  regexp1: 'port="8005"', replace: 'port="{{ port|int - 75 }}"'}
+    # - {  regexp1: 'port="8080"', replace: 'port="{{ port }}"'}
+    # - {  regexp1: 'redirectPort="8443"', replace: 'redirectPort="{{ port|int + 363 }}"'}
+    # - {  regexp1: 'port="8009"', replace: 'port="{{ port|int - 71 }}"'}
+  with_items:
+    - "{{  regexps }}"
+  when: result.rc == 2
+  tags: regex
+
+- name: Add users in tomcat-users.xml
+  blockinfile:
+    path: "{{ assets_dir }}/{{ tomcat_dir }}/conf/tomcat-users.xml"
+    marker: "<!-- {mark} Tomcat users information -->"
+    insertbefore: "^</tomcat-users>"
+    block: |
+      <role rolename="tomcat"/>
+      <role rolename="role1"/>
+      <role rolename="manager-gui"/>
+      <user username="{{ tomcat.username }}" password="{{ tomcat.password }}" roles="tomcat,role1,manager-gui"/>
+  when: result.rc == 2
+
+- name: Copy install_tomcat.sh to remote server
+  copy:
+    src: "{{ lookup('ini', 'COMMON_SCRIPTS section=ANSIBLE file={{ configFile }}') }}/install_tomcat.sh"
+    dest: "{{ connect_software_dir }}/"  
+  
+- name: Make script executable
+  shell: chmod +x {{ connect_software_dir }}/install_tomcat.sh
+
+- name: Running tomcat installation shell script
+  shell: "sudo {{ connect_software_dir }}/install_tomcat.sh {{ service_name }} {{ port }} {{ assets_dir }} {{ tomcat_dir }} {{ jvm_min }} {{ jvm_max }} {{ tomcat.service_user }} {{ tomcat.service_group }}"
+  tags:
+    - installTomcatService
