@@ -1,0 +1,69 @@
+#####################################################################################
+# Date            Version            Change
+# 01/03/2019      1.0                created (previous)
+# 11/04/2019      2.0                backlog fixes and new features (current)
+#####################################################################################
+---
+
+- set_fact:
+    port: "{{ tomcat_port }}"
+
+- name: Verify if Tomcat exists on port "{{ port }}"
+  command: service "{{ service_name }}-{{ port }}" status
+  register: result
+  ignore_errors: true
+
+- name: create "{{ tomcat_dir }}" directory
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+  - "{{ software_dir }}"
+  - "{{ tomcat_dir }}"
+  when: result is failed
+
+- name: Copy tomcat zip to destination machine
+  copy: 
+    src: "{{ support_software }}/{{ tomcat_tar }}"
+    dest: "{{ software_dir }}"
+  when: result is failed
+
+- name: unzip "{{ tomcat_tar }}"
+  command: 'unzip -o {{ software_dir }}/{{ tomcat_tar }} -d {{ tomcat_dir }}'
+  when: result is failed
+
+- name: Replace Connector port of "{{ service_name }}-{{ port }}"
+  replace:
+    path: "{{ server_xml }}"
+    regexp: "{{ item.port }}"
+    replace: "{{ item.replace }}"
+  with_items:
+    - "{{  regexps }}"
+  when: result is failed
+
+- name: Add users in tomcat-users.xml
+  blockinfile:
+    path: "{{ tomcat_dir }}/conf/tomcat-users.xml"
+    marker: "<!-- {mark} Tomcat users information -->"
+    insertbefore: "^</tomcat-users>"
+    block: |
+      <role rolename="tomcat"/>
+      <role rolename="manager-gui"/>
+      <user username="{{ tomcat.username }}" password="{{ tomcat.password }}" roles="tomcat,manager-gui"/>
+  when: result is failed
+  
+- name: Copy install_tomcat_ubuntu.sh to remote server
+  copy:
+    src: "{{ lookup('ini', 'COMMON_SCRIPTS section=ANSIBLE file={{ configFile }}') }}/install_tomcat_ubuntu.sh"
+    dest: "/tmp/"
+  when: result is failed
+
+- name: Make script executable
+  shell: chmod +x /tmp/install_tomcat_ubuntu.sh
+  when: result is failed
+
+- name: Running Tomcat installation shell script
+  shell: "sudo /tmp/install_tomcat_ubuntu.sh {{ service_name }} {{ tomcat_dir }} {{ jvm_min }} {{ jvm_max }} {{ port }} {{ tomcat.service_user }} {{ tomcat.service_group }}"
+  tags:
+    - install_tomcat_as_service
+  when: result is failed
