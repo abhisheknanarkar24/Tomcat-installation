@@ -1,8 +1,8 @@
 ---
 
 # Copy tomcat to target machine(s)
-- import_playbook: "copyFiles.yml"
+- import_playbook: "{{ lookup('ini', 'COMMON_SCRIPTS section=ANSIBLE file={{ configFile }}') }}/copyFiles.yml"
   vars:
     hosts: "{{ hosts }}"
-    src_dir: "apache-tomcat-8.0.39.zip"
-    dest_dir: "/tmp/"
+    src_dir: "{{ lookup('ini', 'SOFTWARE_SOURCE section=Common_Settings file={{ configFile }}') }}/Tomcat/{{ lookup('ini', 'TOMCAT_ZIP section=Common_Settings file={{ configFile }}') }}"
+    dest_dir: "{{ lookup('ini', 'CONNECT_SOFTWARE section=Common_Settings file={{ configFile}}') }}/"
